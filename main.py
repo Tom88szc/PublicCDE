@@ -42,6 +42,20 @@ class ScenarioProcessor:
         with open(file_path, 'a') as f:
             yaml.dump(scenario_data, f, default_flow_style=False, allow_unicode=True)
 
+    def load_data(self):
+        file_path = os.path.join(self.work_dir, 'data.yaml')
+        with open(file_path, 'r') as f:
+            data = yaml.safe_load(f)
+        return data
+
+    def get_all_data_fields(self):
+        data = self.load_data()
+        all_data_fields = []
+        for sc_index, testcases in data.items():
+            for testcase_key, testcase_value in testcases.items():
+                all_data_fields.append(testcase_value['DATA'])
+        return all_data_fields
+
 # Example usage
 scenarios = [
     {
@@ -77,3 +91,7 @@ scenarios = [
 
 processor = ScenarioProcessor(work_dir='.')
 processor.process_testcase(scenarios, card_profiles={})
+
+# Get all DATA fields
+all_data_fields = processor.get_all_data_fields()
+print(all_data_fields)
