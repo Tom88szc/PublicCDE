@@ -1,97 +1,52 @@
-import os
-import yaml
+import socket
+import time
 
-class ScenarioProcessor:
-    def __init__(self, work_dir):
-        self.work_dir = work_dir
+class BnetConnection:
+    def send_logon_first(self, conn, addr):
+        while True:
+            try:
+                for i in range(3):
+                    conn.settimeout(10)
+                    try:
+                        data = conn.recv(1024)
+                        if data:
+                            hex_data_trimmed = data[4:]
+                            bnet = BnetParserMessage(hex_data_trimmed)
+                            print("send_messages")
+                            encoded_message = bytes.fromhex(data)
+                            conn.send(encoded_message)
+                            return  # Zakończ, jeśli otrzymano odpowiedź
+                    except socket.timeout:
+                        print("brak odpowiedzi w ciągu 10 sekund, wysyłanie '0800'")
+                        self.send_message(conn, self.mc_logon_request_0800())
+                        time.sleep(10)  # Opcjonalnie dodaj opóźnienie między wiadomościami
+                print("Koniec działania skryptu po trzykrotnym wysłaniu 'logon'")
+                break
+            except Exception as e:
+                self.logger.error(f"Error sending message to {addr}: {e}")
+                break
 
-    def generate_testcase(self, card_profiles, data, card_ord, testcase_name):
-        # Placeholder implementation for generating test cases
+    def send_message(self, conn, hex_message):
+        try:
+            conn.sendall(hex_message)
+        except Exception as e:
+            self.logger.error(f"Error sending message: {e}")
+
+class BnetParserMessage:
+    def __init__(self, data):
+        # Twoja implementacja parsowania wiadomości
         pass
 
-    def process_testcase(self, scenarios, card_profiles):
-        scenario_data = {}
-        for sc_index, scenario in enumerate(scenarios, start=1):
-            tc_ids = []
-            scenario_data[sc_index] = {}
+    def extract_fields(self):
+        # Twoja implementacja ekstrakcji pól
+        pass
 
-            for testcase_key, testcase_value in scenario.items():
-                if str(testcase_key).startswith('TESTCASE_'):
-                    tc_ids.append(testcase_key)
-                    data = scenario[testcase_key]['DATA']
-                    scenario_data[sc_index][testcase_key] = {"DATA": data}
-                    testcase_name = scenario[testcase_key]['NAME']
-                    testcase_description = scenario[testcase_key]['DESCRIPTION']
-                    card_ord = scenario[testcase_key]['CARD_ORD']
-                    repeat = scenario[testcase_key]['REPEAT']
-                    self.generate_testcase(card_profiles, data, card_ord, testcase_name)
+# Przykład użycia
+if __name__ == "__main__":
+    server_address = ('localhost', 65432)
+    message = b'0800'
 
-                    # Conditional
-                    if 'FULL_REVERSAL' not in scenario[testcase_key].keys():
-                        continue
-                    else:
-                        full_reversal = scenario[testcase_key]['FULL_REVERSAL']
-                        if 'PARTIAL_REVERSAL' not in scenario[testcase_key].keys():
-                            continue
-                        else:
-                            partial_reversal = scenario[testcase_key]['PARTIAL_REVERSAL']
-        self.save_data(scenario_data)
-
-    def save_data(self, scenario_data):
-        file_path = os.path.join(self.work_dir, 'data.yaml')
-        with open(file_path, 'a') as f:
-            yaml.dump(scenario_data, f, default_flow_style=False, allow_unicode=True)
-
-    def load_data(self):
-        file_path = os.path.join(self.work_dir, 'data.yaml')
-        with open(file_path, 'r') as f:
-            data = yaml.safe_load(f)
-        return data
-
-    def get_all_data_fields(self):
-        data = self.load_data()
-        all_data_fields = []
-        for sc_index, testcases in data.items():
-            for testcase_key, testcase_value in testcases.items():
-                all_data_fields.append(testcase_value['DATA'])
-        return all_data_fields
-
-# Example usage
-scenarios = [
-    {
-        "SCENARIO_DESCRIPTION": "Description for scenario 1",
-        "CONFIG_SCENARIO": "Config for scenario 1",
-        "TESTCASE_0001": {
-            "NAME": "Test Case 1",
-            "DESCRIPTION": "Description for Test Case 1",
-            "CARD_ORD": "Card Order 1",
-            "REPEAT": "Repeat 1",
-            "DATA": "Data for Test Case 1"
-        },
-        "TESTCASE_0002": {
-            "NAME": "Test Case 2",
-            "DESCRIPTION": "Description for Test Case 2",
-            "CARD_ORD": "Card Order 2",
-            "REPEAT": "Repeat 2",
-            "DATA": "Data for Test Case 2"
-        }
-    },
-    {
-        "SCENARIO_DESCRIPTION": "Description for scenario 2",
-        "CONFIG_SCENARIO": "Config for scenario 2",
-        "TESTCASE_0001": {
-            "NAME": "Test Case 3",
-            "DESCRIPTION": "Description for Test Case 3",
-            "CARD_ORD": "Card Order 3",
-            "REPEAT": "Repeat 3",
-            "DATA": "Data for Test Case 3"
-        }
-    }
-]
-
-processor = ScenarioProcessor(work_dir='.')
-processor.process_testcase(scenarios, card_profiles={})
-
-# Get all DATA fields
-all_data_fields = processor.get_all_data_fields()
-print(all_data_fields)
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.connect(server_address)
+        connection = BnetConnection()
+        connection.send_logon_first(sock, server_address)
