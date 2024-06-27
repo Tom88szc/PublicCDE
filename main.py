@@ -1,22 +1,21 @@
 import re
 
-
 class Validate:
     def __init__(self, transactions, responses):
         """
-        Konstruktor klasy Validate
-        :param transactions: Lista słowników reprezentujących transakcje
-        :param responses: Lista słowników reprezentujących odpowiedzi
+        Constructor for the Validate class
+        :param transactions: List of dictionaries representing transactions
+        :param responses: List of dictionaries representing responses
         """
         self.transactions = transactions
         self.responses = responses
 
     def validate_placeholder(self, placeholder, value):
         """
-        Weryfikuje, czy wartość spełnia wymagania placeholdera.
-        :param placeholder: Placeholder do weryfikacji
-        :param value: Wartość do sprawdzenia
-        :return: True, jeśli wartość spełnia wymagania placeholdera, False w przeciwnym razie
+        Validates if the value meets the placeholder requirements.
+        :param placeholder: Placeholder to validate against
+        :param value: Value to be checked
+        :return: True if the value meets the placeholder requirements, False otherwise
         """
         alnum_match = re.match(r'\{AN:(\d+)-(\d+)\}', placeholder)
         num_match = re.match(r'\{N:(\d+)-(\d+)\}', placeholder)
@@ -45,10 +44,10 @@ class Validate:
 
     def compare_value(self, trans_value, resp_value):
         """
-        Porównuje wartość transakcji z wartością odpowiedzi uwzględniając placeholdery.
-        :param trans_value: Wartość transakcji
-        :param resp_value: Wartość odpowiedzi
-        :return: True, jeśli wartości są zgodne, False w przeciwnym razie
+        Compares the transaction value with the response value considering placeholders.
+        :param trans_value: Transaction value
+        :param resp_value: Response value
+        :return: True if the values match, False otherwise
         """
         if re.match(r'\{AN:\d+(-\d+)?\}', resp_value) or re.match(r'\{N:\d+(-\d+)?\}', resp_value):
             return self.validate_placeholder(resp_value, trans_value)
@@ -56,8 +55,8 @@ class Validate:
 
     def compare_transactions(self):
         """
-        Porównuje transakcje z odpowiedziami i zwraca listę różnic.
-        :return: Lista różnic
+        Compares transactions with responses and returns a list of differences.
+        :return: List of differences
         """
         differences = []
         for i, (trans, resp) in enumerate(zip(self.transactions, self.responses)):
@@ -67,7 +66,7 @@ class Validate:
                 trans_value = trans.get(key)
                 resp_value = resp.get(key)
                 if trans_value is None:
-                    trans_diff[key] = f"Error: Field {key} is missing in transaction."
+                    trans_diff[key] = f"Error: Field {key} is required in transaction."
                 elif not self.compare_value(trans_value, resp_value):
                     trans_diff[key] = {'expected': trans_value, 'actual': resp_value}
             if trans_diff:
@@ -76,7 +75,7 @@ class Validate:
 
     def display_differences(self):
         """
-        Wyświetla różnice między transakcjami a odpowiedziami oraz podsumowanie.
+        Displays the differences between transactions and responses along with a summary.
         """
         differences = self.compare_transactions()
         total_transactions = len(self.transactions)
@@ -85,35 +84,35 @@ class Validate:
 
         report_lines = []
 
-        for diff in differences:
-            report_lines.append(f"Transaction index: {diff['transaction_index']}")
-            for key, value in diff['differences'].items():
-                if isinstance(value, str) and value.startswith("Error"):
-                    report_lines.append(value)
-                else:
-                    report_lines.append(f"Key: {key}, Expected: {value['expected']}, Actual: {value['actual']}")
+        for i in range(total_transactions):
+            if any(diff['transaction_index'] == i for diff in differences):
+                report_lines.append(f"Transaction index: {i}")
+                for diff in differences:
+                    if diff['transaction_index'] == i:
+                        for key, value in diff['differences'].items():
+                            if isinstance(value, str) and value.startswith("Error"):
+                                report_lines.append(value)
+                            else:
+                                report_lines.append(f"Key: {key}, Expected: {value['expected']}, Actual: {value['actual']}")
+                report_lines.append(f"Transaction index: {i} - \033[91mFailed\033[0m")  # Red color for failed
+            else:
+                report_lines.append(f"Transaction index: {i} - \033[92mPassed\033[0m")  # Green color for passed
 
-        report_lines.append(f"\nTotal transactions: {total_transactions}")
-        report_lines.append(f"Passed: {passed_transactions}")
-        report_lines.append(f"Failed: {failed_transactions}")
+        report_lines.append(f"\033[94m\nTotal transactions: {total_transactions}\033[0m")
+        report_lines.append(f"\033[92mPassed: {passed_transactions}\033[0m")
+        report_lines.append(f"\033[91mFailed: {failed_transactions}\033[0m")
 
+        # Save report to file
         with open("raport.txt", "w") as file:
             for line in report_lines:
-                file.write(line + "\n")
+                file.write(re.sub(r'\033\[\d+m', '', line) + "\n")  # Remove color codes for the file
 
         # Display the report in color
         for line in report_lines:
-            if "Total transactions" in line:
-                print(f"\033[94m{line}\033[0m")
-            elif "Passed" in line:
-                print(f"\033[92m{line}\033[0m")
-            elif "Failed" in line:
-                print(f"\033[91m{line}\033[0m")
-            else:
-                print(line)
+            print(line)
 
 
-# Przykład użycia
+# Usage example
 transactions = [
     {'DE001': '0100', 'DE002': '407132120069790', 'DE003': '170000',
      'DE004': '000000000000', 'DE006': '000000000000', 'DE007': '{TIME}',
