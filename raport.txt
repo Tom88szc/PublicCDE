@@ -2,8 +2,7 @@ Transaction index: 0 - Passed
 Transaction index: 1 - Passed
 Transaction index: 2
 Key: DE001, Expected: 0100, Actual: 0110
-Key: DE002, Expected: 407132120069790, Actual: {AN:16}
-Key: DE004, Expected: 000000000000, Actual: {AN:1-5}
+Error: Field DE008 does not exist in transaction.
 Error: Field DE005 is required in transaction.
 Transaction index: 2 - Failed
 

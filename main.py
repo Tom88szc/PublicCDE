@@ -10,17 +10,21 @@ class Validate:
         self.transactions = transactions
         self.responses = responses
 
-    def validate_placeholder(self, placeholder, value):
+    def validate_placeholder(self, placeholder, value, trans_value=None):
         """
         Validates if the value meets the placeholder requirements.
         :param placeholder: Placeholder to validate against
         :param value: Value to be checked
+        :param trans_value: Transaction value for {ECHO}, {EQUAL}, and {ISEXIST} validation
         :return: True if the value meets the placeholder requirements, False otherwise
         """
         alnum_match = re.match(r'\{AN:(\d+)-(\d+)\}', placeholder)
         num_match = re.match(r'\{N:(\d+)-(\d+)\}', placeholder)
         fixed_alnum_match = re.match(r'\{AN:(\d+)\}', placeholder)
         fixed_num_match = re.match(r'\{N:(\d+)\}', placeholder)
+        echo_match = re.match(r'\{ECHO\}', placeholder)
+        equal_match = re.match(r'\{EQUAL\}', placeholder)
+        isexist_match = re.match(r'\{ISEXIST\}', placeholder)
 
         if alnum_match:
             min_length = int(alnum_match.group(1))
@@ -40,6 +44,15 @@ class Validate:
             length = int(fixed_num_match.group(1))
             return len(value) == length and value.isdigit()
 
+        if echo_match:
+            return value == trans_value
+
+        if equal_match:
+            return value == trans_value
+
+        if isexist_match:
+            return trans_value is not None
+
         return False
 
     def compare_value(self, trans_value, resp_value):
@@ -49,8 +62,8 @@ class Validate:
         :param resp_value: Response value
         :return: True if the values match, False otherwise
         """
-        if re.match(r'\{AN:\d+(-\d+)?\}', resp_value) or re.match(r'\{N:\d+(-\d+)?\}', resp_value):
-            return self.validate_placeholder(resp_value, trans_value)
+        if re.match(r'\{AN:\d+(-\d+)?\}', resp_value) or re.match(r'\{N:\d+(-\d+)?\}', resp_value) or re.match(r'\{ECHO\}', resp_value) or re.match(r'\{EQUAL\}', resp_value) or re.match(r'\{ISEXIST\}', resp_value):
+            return self.validate_placeholder(resp_value, trans_value, trans_value)
         return trans_value == resp_value
 
     def compare_transactions(self):
@@ -65,10 +78,15 @@ class Validate:
             for key in all_keys:
                 trans_value = trans.get(key)
                 resp_value = resp.get(key)
-                if trans_value is None:
+                if trans_value is None and not re.match(r'\{ISEXIST\}', resp_value):
                     trans_diff[key] = f"Error: Field {key} is required in transaction."
                 elif not self.compare_value(trans_value, resp_value):
-                    trans_diff[key] = {'expected': trans_value, 'actual': resp_value}
+                    if re.match(r'\{ECHO\}', resp_value) or re.match(r'\{EQUAL\}', resp_value):
+                        trans_diff[key] = f"Error: Field {key} value is different. Expected: {trans_value}, Actual: {resp_value}"
+                    elif re.match(r'\{ISEXIST\}', resp_value):
+                        trans_diff[key] = f"Error: Field {key} does not exist in transaction."
+                    else:
+                        trans_diff[key] = {'expected': trans_value, 'actual': resp_value}
             if trans_diff:
                 differences.append({'transaction_index': i, 'differences': trans_diff})
         return differences
@@ -162,7 +180,7 @@ responses = [
      'DE048': 'C6A051010123065ffA72-05de-48ec-9517-4bef861c090a',
      'DE049': '985', 'DE051': '985', 'DE060': '230B0000000010610090210',
      'DE063': 'MCD0817RJ'},
-    {'DE001': '0110', 'DE002': '{AN:16}', 'DE003': '{N:1-6}', 'DE004': '{AN:1-5}', 'DE005': '0000'}
+    {'DE001': '0110', 'DE002': '{ECHO}', 'DE003': '{EQUAL}', 'DE008': '{ISEXIST}', 'DE005': '0000'}
 ]
 
 validator = Validate(transactions, responses)
