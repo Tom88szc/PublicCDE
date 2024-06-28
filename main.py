@@ -1,14 +1,14 @@
 import re
 
 class Validate:
-    def __init__(self, transactions, responses):
+    def __init__(self, transaction, response):
         """
         Constructor for the Validate class
-        :param transactions: List of dictionaries representing transactions
-        :param responses: List of dictionaries representing responses
+        :param transaction: Dictionary representing a transaction
+        :param response: Dictionary representing a response
         """
-        self.transactions = transactions
-        self.responses = responses
+        self.transaction = transaction
+        self.response = response
 
     def validate_placeholder(self, placeholder, value, trans_value=None):
         """
@@ -68,69 +68,53 @@ class Validate:
 
     def compare_transactions(self):
         """
-        Compares transactions with responses and returns a list of differences.
+        Compares the transaction with the response and returns a list of differences.
         :return: List of differences
         """
         differences = []
-        for i, (trans, resp) in enumerate(zip(self.transactions, self.responses)):
-            trans_diff = {}
-            all_keys = resp.keys()  # Only check keys in responses
-            for key in all_keys:
-                trans_value = trans.get(key)
-                resp_value = resp.get(key)
-                if trans_value is None and not re.match(r'\{ISEXIST\}', resp_value):
-                    trans_diff[key] = f"Error: Field {key} is required in transaction."
-                elif not self.compare_value(trans_value, resp_value):
-                    if re.match(r'\{ECHO\}', resp_value) or re.match(r'\{EQUAL\}', resp_value):
-                        trans_diff[key] = f"Error: Field {key} value is different. Expected: {trans_value}, Actual: {resp_value}"
-                    elif re.match(r'\{ISEXIST\}', resp_value):
-                        trans_diff[key] = f"Error: Field {key} does not exist in transaction."
-                    else:
-                        trans_diff[key] = {'expected': trans_value, 'actual': resp_value}
-            if trans_diff:
-                differences.append({'transaction_index': i, 'differences': trans_diff})
+        all_keys = self.response.keys()  # Only check keys in the response
+        for key in all_keys:
+            trans_value = self.transaction.get(key)
+            resp_value = self.response.get(key)
+            if trans_value is None and not re.match(r'\{ISEXIST\}', resp_value):
+                differences.append(f"Error: Field {key} is required in transaction.")
+            elif not self.compare_value(trans_value, resp_value):
+                if re.match(r'\{ECHO\}', resp_value) or re.match(r'\{EQUAL\}', resp_value):
+                    differences.append(f"Error: Field {key} value is different. Expected: {trans_value}, Actual: {resp_value}")
+                elif re.match(r'\{ISEXIST\}', resp_value):
+                    differences.append(f"Error: Field {key} does not exist in transaction.")
+                else:
+                    differences.append(f"Key: {key}, Expected: {trans_value}, Actual: {resp_value}")
         return differences
 
     def display_differences(self):
         """
-        Displays the differences between transactions and responses along with a summary.
+        Displays the differences between the transaction and the response along with a summary.
         """
         differences = self.compare_transactions()
-        total_transactions = len(self.transactions)
-        failed_transactions = len(differences)
-        passed_transactions = total_transactions - failed_transactions
-
-        report_lines = []
-
-        for i in range(total_transactions):
-            if any(diff['transaction_index'] == i for diff in differences):
-                report_lines.append(f"Transaction index: {i}")
-                for diff in differences:
-                    if diff['transaction_index'] == i:
-                        for key, value in diff['differences'].items():
-                            if isinstance(value, str) and value.startswith("Error"):
-                                report_lines.append(value)
-                            else:
-                                report_lines.append(f"Key: {key}, Expected: {value['expected']}, Actual: {value['actual']}")
-                report_lines.append(f"Transaction index: {i} - \033[91mFailed\033[0m")  # Red color for failed
-            else:
-                report_lines.append(f"Transaction index: {i} - \033[92mPassed\033[0m")  # Green color for passed
-
-        report_lines.append(f"\033[94m\nTotal transactions: {total_transactions}\033[0m")
-        report_lines.append(f"\033[92mPassed: {passed_transactions}\033[0m")
-        report_lines.append(f"\033[91mFailed: {failed_transactions}\033[0m")
+        if differences:
+            print(f"Transaction - \033[91mFailed\033[0m")  # Red color for failed
+            for difference in differences:
+                print(difference)
+        else:
+            print(f"Transaction - \033[92mPassed\033[0m")  # Green color for passed
 
         # Save report to file
-        with open("raport.txt", "w") as file:
-            for line in report_lines:
-                file.write(re.sub(r'\033\[\d+m', '', line) + "\n")  # Remove color codes for the file
+        with open("report.txt", "w") as file:
+            if differences:
+                file.write("Transaction - Failed\n")
+                for difference in differences:
+                    file.write(difference + "\n")
+            else:
+                file.write("Transaction - Passed\n")
 
-        # Display the report in color
-        for line in report_lines:
-            print(line)
 
-transactions = []
-responses = []
+# Example usage with transactions and responses
+transactions = {
+}
+
+responses = {
+}
 
 validator = Validate(transactions, responses)
 validator.display_differences()
