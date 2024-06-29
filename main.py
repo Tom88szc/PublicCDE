@@ -1,38 +1,46 @@
-def get_all_exception_to_realtime_validation_bnet(self, scenario):
-    """
-    Return a dictionary with SCENARIO_00X and TESTCASE_00X as keys
-    and BNET_VALID_FIELDS as values.
-    """
+messages = {
+    1: {'TESTCASE_0001': {'DE001': '0110', 'DE002': '4071321206096790', 'DE003': '170000', 'DE004': '00000000'}},
+    2: {'TESTCASE_0001': {'DE001': '0110', 'DE002': '4071321206096790', 'DE003': '170000', 'DE004': '00000000'}}
+}
 
-    file_path = os.path.join(AppConfig.load_scenarios_path + '\\' + scenario, 'scenario.yaml')
-    data = read_yaml_file(file_path)
-    scenario_dict = {}
+rt_validation = {
+    'SCENARIO_001': {'TESTCASE_0001': {'DE001': '0110', 'DE049': '985'}, 'TESTCASE_0002': {'DE001': '0110', 'DE049': '985'}},
+    'SCENARIO_002': {'TESTCASE_0001': {'DE001': '0110', 'DE049': '985'}}
+}
 
-    for sc_index, testcases in data.items():
-        scenario_dict[sc_index] = {}
-        for testcase_key, testcase_value in testcases.items():
-            if str(testcase_key).startswith('TESTCASE_'):
-                scenario_dict[sc_index][testcase_key] = testcase_value['BNET_VALID_FIELDS']
+# Przekształcanie kluczy w messages na stringi i dopasowywanie formatu do rt_validation
+messages_converted = {f'SCENARIO_{str(key).zfill(3)}': value for key, value in messages.items()}
 
-    print(scenario_dict)
-    return scenario_dict
+def get_scenario_testcase(scenario, testcase):
+    message_data = messages_converted.get(scenario, {}).get(testcase)
+    rt_validation_data = rt_validation.get(scenario, {}).get(testcase)
 
+    if message_data and rt_validation_data:
+        return {
+            'messages': message_data,
+            'rt_validation': rt_validation_data
+        }
+    elif message_data:
+        return {
+            'messages': message_data,
+            'rt_validation': None
+        }
+    elif rt_validation_data:
+        return {
+            'messages': None,
+            'rt_validation': rt_validation_data
+        }
+    else:
+        return None
 
-def get_all_data_fields(self):
-    """
-    Return a dictionary with SCENARIO_00X and TESTCASE_00X as keys
-    and DATA as values.
-    """
+# Przykład użycia funkcji
+scenario = 'SCENARIO_001'
+testcase = 'TESTCASE_0001'
+result = get_scenario_testcase(scenario, testcase)
 
-    file_path = os.path.join(self.work_dir, 'data.yaml')
-    data = read_yaml_file(file_path)
-    scenario_dict = {}
-
-    for sc_index, testcases in data.items():
-        scenario_dict[sc_index] = {}
-        for testcase_key, testcase_value in testcases.items():
-            if str(testcase_key).startswith('TESTCASE_'):
-                scenario_dict[sc_index][testcase_key] = testcase_value['DATA']
-
-    print(scenario_dict)
-    return scenario_dict
+if result:
+    print(f'Data for {scenario} {testcase}:')
+    print('Messages:', result['messages'])
+    print('RT Validation:', result['rt_validation'])
+else:
+    print(f'No data found for {scenario} {testcase}')
