@@ -8,6 +8,45 @@ rt_validation = {
     'SCENARIO_002': {'TESTCASE_0001': {'DE001': '0110', 'DE049': '985'}}
 }
 
+
+class TLVParser:
+    def __init__(self, data):
+        self.data = data
+        self.index = 0
+
+    def parse(self):
+        result = []
+        while self.index < len(self.data):
+            tag = self._parse_tag()
+            length = self._parse_length()
+            value = self._parse_value(length)
+            result.append({'Tag': tag, 'Length': length, 'Value': value})
+        return result
+
+    def _parse_tag(self):
+        tag = self.data[self.index:self.index + 2]
+        self.index += 2
+        return tag
+
+    def _parse_length(self):
+        length_hex = self.data[self.index:self.index + 2]
+        length = int(length_hex, 16)
+        self.index += 2
+        return length
+
+    def _parse_value(self, length):
+        value = self.data[self.index:self.index + (length * 2)]
+        self.index += length * 2
+        return value
+
+
+# Przykład użycia
+tlv_data = "010300DEADBEEF02010503012345"
+parser = TLVParser(tlv_data)
+parsed_data = parser.parse()
+for entry in parsed_data:
+    print(entry)
+
 # Przekształcanie kluczy w messages na stringi i dopasowywanie formatu do rt_validation
 messages_converted = {f'SCENARIO_{str(key).zfill(3)}': value for key, value in messages.items()}
 
