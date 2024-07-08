@@ -1,85 +1,131 @@
-messages = {
-    1: {'TESTCASE_0001': {'DE001': '0110', 'DE002': '4071321206096790', 'DE003': '170000', 'DE004': '00000000'}},
-    2: {'TESTCASE_0001': {'DE001': '0110', 'DE002': '4071321206096790', 'DE003': '170000', 'DE004': '00000000'}}
-}
+import yaml
+import pprint
 
-rt_validation = {
-    'SCENARIO_001': {'TESTCASE_0001': {'DE001': '0110', 'DE049': '985'}, 'TESTCASE_0002': {'DE001': '0110', 'DE049': '985'}},
-    'SCENARIO_002': {'TESTCASE_0001': {'DE001': '0110', 'DE049': '985'}}
+# Przykładowa zawartość YAML
+yaml_content = """
+TCC: {"len": "1", "format": "b-1", "desc": "Transaction Category Code"}
+SE009: {
+    "len": "2",
+    "format": "an-9",
+    "desc": "Virtual Card Number Data",
+    "SF001": {"len": "1", "format": "an-1", "desc": "Virtual Card Number Indicator"},
+    "SF002": {"len": "LLVAR", "format": "n-19", "desc": "Virtual Card Number"},
+    "SF003": {"len": "10", "format": "n-10", "desc": "Virtual Card Number Expiration Date"}
 }
+"""
+
+# Wczytywanie zawartości YAML do słownika Pythona
+data = yaml.safe_load(yaml_content)
 
 
 class TLVParser:
-    def __init__(self, data):
-        self.data = data
-        self.index = 0
+    def __init__(self, tlv_string, schema):
+        self.tlv_string = tlv_string
+        self.schema = schema
+        self.position = 0
 
     def parse(self):
-        result = []
-        while self.index < len(self.data):
-            tag = self._parse_tag()
-            length = self._parse_length()
-            value = self._parse_value(length)
-            result.append({'Tag': tag, 'Length': length, 'Value': value})
+        result = {}
+        try:
+            while self.position < len(self.tlv_string):
+                tag = self.tlv_string[self.position:self.position + 4]
+                self.position += 4
+                if tag in self.schema:
+                    length, value = self.parse_value(tag, self.schema[tag]['format'])
+                    if tag == 'SE009':  # Jeśli to jest SE009, parsujemy jego sub-elementy
+                        sub_elements = self.parse_sub_elements(value, self.schema[tag])
+                        result[tag] = sub_elements
+                    else:
+                        result[tag] = value
+                else:
+                    raise ValueError(f"Unknown tag: {tag}")
+            return result
+        except Exception as e:
+            print(f"Error parsing TLV string: {e}")
+            return None
+
+    def parse_value(self, tag, format):
+        if format == 'LLVAR':
+            length = int(self.tlv_string[self.position:self.position + 2], 16)
+            self.position += 2
+        elif format == 'LLLVAR':
+            length = int(self.tlv_string[self.position:self.position + 3], 16)
+            self.position += 3
+        else:
+            length = int(self.tlv_string[self.position:self.position + 2], 16)
+            self.position += 2
+        value = self.tlv_string[self.position:self.position + length * 2]
+        self.position += length * 2
+        return length, value
+
+    def parse_sub_elements(self, value, schema):
+        sub_result = {}
+        sub_position = 0
+        while sub_position < len(value):
+            sub_tag = value[sub_position:sub_position + 5]
+            sub_position += 5
+            if sub_tag in schema:
+                sub_length, sub_value = self.parse_sub_value(value, sub_position, schema[sub_tag]['format'])
+                sub_result[sub_tag] = sub_value
+                sub_position += sub_length * 2
+            else:
+                raise ValueError(f"Unknown sub-tag: {sub_tag}")
+        return sub_result
+
+    def parse_sub_value(self, value, sub_position, format):
+        if format == 'LLVAR':
+            length = int(value[sub_position:sub_position + 2], 16)
+            sub_position += 2
+        elif format == 'LLLVAR':
+            length = int(value[sub_position:sub_position + 3], 16)
+            sub_position += 3
+        else:
+            length = int(value[sub_position:sub_position + 2], 16)
+            sub_position += 2
+        sub_value = value[sub_position:sub_position + length * 2]
+        return length, sub_value
+
+
+# Przykładowy ciąg TLV
+tlv_string = "TCC1000001SE009100SF001F131SF002LL19XXXXXXXXXXXXXXXXXXXXXXSF00300000000000000"
+
+# Tworzenie instancji TLVParser i parsowanie danych
+parser = TLVParser(tlv_string, data)
+parsed_data = parser.parse()
+
+# Wyświetlanie przetworzonych danych
+pprint.pprint(parsed_data)
+
+
+class TLVParser:
+    def __init__(self, tlv_string):
+        self.tlv_string = tlv_string
+        self.position = 0
+
+    def parse(self):
+        result = {}
+        while self.position < len(self.tlv_string):
+            tag = self.tlv_string[self.position:self.position + 2]
+            self.position += 2
+            length = int(self.tlv_string[self.position:self.position + 2], 16)
+            self.position += 2
+            value = self.tlv_string[self.position:self.position + length * 2]
+            self.position += length * 2
+            result[tag] = {
+                'length': length,
+                'value': value
+            }
         return result
 
-    def _parse_tag(self):
-        tag = self.data[self.index:self.index + 2]
-        self.index += 2
-        return tag
 
-    def _parse_length(self):
-        length_hex = self.data[self.index:self.index + 2]
-        length = int(length_hex, 16)
-        self.index += 2
-        return length
+# Example TLV string
+tlv_string = "010300DEADBE020105031234"
 
-    def _parse_value(self, length):
-        value = self.data[self.index:self.index + (length * 2)]
-        self.index += length * 2
-        return value
-
-
-# Przykład użycia
-tlv_data = "010300DEADBEEF02010503012345"
-parser = TLVParser(tlv_data)
+# Create a TLVParser instance and parse the TLV string
+parser = TLVParser(tlv_string)
 parsed_data = parser.parse()
-for entry in parsed_data:
-    print(entry)
 
-# Przekształcanie kluczy w messages na stringi i dopasowywanie formatu do rt_validation
-messages_converted = {f'SCENARIO_{str(key).zfill(3)}': value for key, value in messages.items()}
+# Display the parsed data
+import pprint
 
-def get_scenario_testcase(scenario, testcase):
-    message_data = messages_converted.get(scenario, {}).get(testcase)
-    rt_validation_data = rt_validation.get(scenario, {}).get(testcase)
-
-    if message_data and rt_validation_data:
-        return {
-            'messages': message_data,
-            'rt_validation': rt_validation_data
-        }
-    elif message_data:
-        return {
-            'messages': message_data,
-            'rt_validation': None
-        }
-    elif rt_validation_data:
-        return {
-            'messages': None,
-            'rt_validation': rt_validation_data
-        }
-    else:
-        return None
-
-# Przykład użycia funkcji
-scenario = 'SCENARIO_001'
-testcase = 'TESTCASE_0001'
-result = get_scenario_testcase(scenario, testcase)
-
-if result:
-    print(f'Data for {scenario} {testcase}:')
-    print('Messages:', result['messages'])
-    print('RT Validation:', result['rt_validation'])
-else:
-    print(f'No data found for {scenario} {testcase}')
+pprint.pprint(parsed_data)
