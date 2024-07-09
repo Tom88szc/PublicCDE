@@ -1,30 +1,54 @@
-class TLVParser:
-    def __init__(self, data):
-        self.data = data
-        self.parsed_data = {}
+def parse_tlv(input_string):
+    elements = {}
 
-    def parse(self):
-        index = 0
-        while index < len(self.data):
-            try:
-                tag = self.data[index:index+2]
-                length = int(self.data[index+2:index+4])
-                value = self.data[index+4:index+4+length]
-                self.parsed_data[tag] = value
-                index += 4 + length
-            except ValueError:
-                print(f"Error parsing data at index {index}. Data: {self.data[index:index+10]}")
-                break
+    while input_string:
+        # Pierwsze dwa znaki to TAG
+        tag = input_string[:2]
 
-    def get_parsed_data(self):
-        return self.parsed_data
+        # Kolejne dwa znaki to LENGTH
+        length = int(input_string[2:4])
 
-    def display(self):
-        for tag, value in self.parsed_data.items():
-            print(f"{tag}: {value}")
+        # Następne length znaków to VALUE
+        value = input_string[4:4 + length]
 
-# Przykład użycia
-data = "0104Adam0201A0307Adamski0411Mickiewicza0507Adamowo06030120703POL0807123456090829021980010801011994111191234567890876543212102020013011403POL1508123120251603POL1703POL0214601405BYTOM0602NJ0703POL080520000000950005045BYTOM0502NJ0703POL0322"
-parser = TLVParser(data)
-parser.parse()
-parser.display()
+        # Sprawdzenie, czy wartość zawiera dalsze TLV
+        if len(value) > 4 and value[2:4].isdigit():
+            value = parse_tlv(value)
+
+        # Dodanie elementu do słownika
+        elements[f'SE{tag}'] = value
+
+        # Usunięcie przetworzonego elementu z ciągu
+        input_string = input_string[4 + length:]
+
+    return elements
+
+
+def parse_de048(input_string):
+    # Pierwszy znak to TCC (Transaction Code Component)
+    tcc = input_string[0]
+
+    # Reszta ciągu to SUBELEMENTS
+    subelements_str = input_string[1:]
+
+    # Tworzenie struktury słownikowej
+    de048 = {
+        "TCC": {
+            "SE001": tcc
+        },
+        "SUBELEMENTS": parse_tlv(subelements_str)
+    }
+
+    return de048
+
+
+# Przykładowy ciąg
+input_string = "R6645010110236635ffA72-05de-48ec-9517-4bef061c096a"
+
+# Wywołanie funkcji
+result = parse_de048(input_string)
+
+# Wyświetlenie wyniku
+import pprint
+
+pprint.pprint(result)
