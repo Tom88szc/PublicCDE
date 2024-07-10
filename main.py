@@ -129,3 +129,86 @@ parsed_data = parser.parse()
 import pprint
 
 pprint.pprint(parsed_data)
+
+
+def parse_tlv(input_string):
+    """
+    Parses a string in TLV (Tag-Length-Value) format.
+
+    Args:
+    input_string (str): The string to parse in TLV format.
+
+    Returns:
+    dict: A dictionary containing parsed TLV elements.
+
+    TLV Format:
+    - TAG: The first two characters indicating the type of subelement.
+    - LENGTH: The next two characters indicating the length of the subelement's value.
+    - VALUE: The value of the subelement with the length specified by LENGTH.
+    """
+    elements = {}
+
+    while input_string:
+        # First two characters are the TAG
+        tag = input_string[:2]
+
+        # Next two characters are the LENGTH
+        length = int(input_string[2:4])
+
+        # Next length characters are the VALUE
+        value = input_string[4:4 + length]
+
+        # Check if the value contains further TLV elements
+        if len(value) > 4 and value[2:4].isdigit():
+            value = parse_tlv(value)
+
+        # Add the element to the dictionary
+        elements[f'SE{tag}'] = value
+
+        # Remove the processed element from the string
+        input_string = input_string[4 + length:]
+
+    return elements
+
+
+def parse_de048(input_string):
+    """
+    Parses the DE048 field from an ISO 8583 message.
+
+    Args:
+    input_string (str): The string in DE048 format to parse.
+
+    Returns:
+    dict: A dictionary containing parsed elements of the DE048 field.
+
+    DE048 Field Structure:
+    - The first character is the TCC (Transaction Code Component), stored as SE001.
+    - The remaining part is SUBELEMENTS, parsed as nested TLV structures.
+    """
+    # The first character is the TCC (Transaction Code Component)
+    tcc = input_string[0]
+
+    # The rest of the string is SUBELEMENTS
+    subelements_str = input_string[1:]
+
+    # Create the dictionary structure
+    de048 = {
+        "TCC": {
+            "SE001": tcc
+        },
+        "SUBELEMENTS": parse_tlv(subelements_str)
+    }
+
+    return de048
+
+
+# Example string
+input_string = "R6645010110236635ffA72-05de-48ec-9517-4bef061c096a"
+
+# Call the function
+result = parse_de048(input_string)
+
+# Print the result
+import pprint
+
+pprint.pprint(result)
