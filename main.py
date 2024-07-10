@@ -99,8 +99,64 @@ de048_dict = {
         'SF06': {'len': '2', 'format': 'n-11', 'desc': 'Token Requestor ID'},
         'SF07': {'len': 'LLVAR', 'format': 'n-19', 'desc': 'Primary Account Number, Account Range'},
         'SF08': {'len': '2', 'format': 'an-2', 'desc': 'Storage Technology'}
-    },
-    'SE66': {
+    }
+}
+
+# Example input string in DE048 format
+input_string = "T230201260321633260101H0611012345678900802039203857"
+
+# Call the parse_de048 function with the DE048 structure
+result = parse_de048(input_string, de048_dict)
+
+# Print the result using pprint for better readability
+import pprint
+pprint.pprint(result)
+
+########################################################################################################################
+
+def build_tlv(elements, structure_dict=None):
+    """
+    Builds a TLV string from a dictionary of elements based on the provided structure dictionary.
+
+    Args:
+    elements (dict): The dictionary of elements to convert to TLV format.
+    structure_dict (dict): The dictionary defining the structure of the TLV elements.
+
+    Returns:
+    str: The TLV string representation of the elements.
+    """
+    tlv_string = ""
+    for key, value in elements.items():
+        tag = key[2:]  # Remove 'SE' prefix
+        if isinstance(value, dict):
+            # Handle nested structure
+            sub_tlv = build_tlv(value, structure_dict.get(key, {}))
+            length = len(sub_tlv)
+            tlv_string += f"{tag}{length:02d}{sub_tlv}"
+        else:
+            length = len(value)
+            tlv_string += f"{tag}{length:02d}{value}"
+    return tlv_string
+
+def build_de048(de048_dict, structure_dict):
+    """
+    Builds a DE048 TLV string from a dictionary of DE048 elements.
+
+    Args:
+    de048_dict (dict): The dictionary of DE048 elements to convert to TLV format.
+    structure_dict (dict): The dictionary defining the structure of the DE048 field.
+
+    Returns:
+    str: The DE048 TLV string representation of the elements.
+    """
+    tcc = de048_dict["TCC"]["SE001"]
+    subelements = de048_dict["SUBELEMENTS"]
+    subelements_tlv = build_tlv(subelements, structure_dict)
+    return f"{tcc}{subelements_tlv}"
+
+# Define the DE048 structure
+de048_dict_structure = {
+    'SE33': {
         'len': 'LLVAR',
         'format': 'an-93',
         'desc': 'PAN Mapping File Information',
@@ -115,12 +171,17 @@ de048_dict = {
     }
 }
 
-# Example input string in DE048 format
-input_string = "R6645010110236635ffA72-05de-48ec-9517-4bef061c096a"
+# Example dictionary input
+de048_dict = {
+    'SUBELEMENTS': {
+        'SE23': '01',
+        'SE26': '216',
+        'SE33': {'SE01': 'H', 'SE06': '01234567890', 'SE08': '03'},
+        'SE92': '857'
+    },
+    'TCC': {'SE001': 'T'}
+}
 
-# Call the parse_de048 function with the DE048 structure
-result = parse_de048(input_string, de048_dict)
-
-# Print the result using pprint for better readability
-import pprint
-pprint.pprint(result)
+# Convert the dictionary back to a TLV string
+tlv_string = build_de048(de048_dict, de048_dict_structure)
+print(tlv_string)
