@@ -16,7 +16,6 @@ def parse_tlv(input_string, structure_dict=None):
     """
     elements = {}
 
-
     while input_string:
         # First two characters are the TAG
         tag = input_string[:2]
@@ -30,7 +29,7 @@ def parse_tlv(input_string, structure_dict=None):
         # Add the element to the dictionary
         elements[f'SE{tag}'] = value
 
-        # Remove the processed element from the stringz
+        # Remove the processed element from the string
         input_string = input_string[4 + length:]
 
     return elements
@@ -186,3 +185,61 @@ de048_dict = {
 # Convert the dictionary back to a TLV string
 tlv_string = build_de048(de048_dict, de048_dict_structure)
 print(tlv_string)
+
+
+#######################################################################################################
+
+def parse_tlv(input_string, de_field):
+    """
+    Parse the TLV input string based on the field definitions specified in de_field.
+    """
+    field_len_def = self.de_fields_definitions[de_field]['len']
+
+    # Determine the length of the length indicator (LLVAR or LLLVAR)
+    var_length_indicator = 3 if 'LLL' in field_len_def else 2 if 'LL' in field_len_def else 0
+    elements = {}
+
+    while input_string:
+        # First two characters are the TAG
+        tag = input_string[:2]
+
+        # Next indicator characters are the LENGTH
+        length = int(input_string[2:2 + var_length_indicator])
+
+        # Next length characters are the VALUE
+        value = input_string[2 + var_length_indicator:2 + var_length_indicator + length]
+
+        # Add the element to the dictionary
+        elements[f'{tag}'] = value
+
+        # Remove the processed element from the string
+        input_string = input_string[2 + var_length_indicator + length:]
+
+    return elements
+
+
+def parse_subelements(self, input_string, subelements, ten_de_field):
+    """
+    Parse subelements within the TLV string.
+    """
+    while input_string:
+        # First two characters are the TAG
+        tag = input_string[:2]
+
+        # Determine the length of the length indicator (LLVAR or LLLVAR)
+        field_len_def = subelements[ten_de_field][tag]['len']
+        var_length_indicator = 3 if 'LLL' in field_len_def else 2 if 'LL' in field_len_def else 0
+
+        # Next indicator characters are the LENGTH
+        length = int(input_string[2:2 + var_length_indicator])
+
+        # Next length characters are the VALUE
+        value = input_string[2 + var_length_indicator:2 + var_length_indicator + length]
+
+        # Add the element to the dictionary
+        elements[f'{tag}'] = value
+
+        # Remove the processed element from the string
+        input_string = input_string[2 + var_length_indicator + length:]
+
+    return elements
