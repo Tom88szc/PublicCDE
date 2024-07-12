@@ -1,55 +1,48 @@
-def parse_tlv(input_string, structure_dict=None, field_de_len='LLVAR'):
+def parse_tlv(input_string, structure_dict=None):
     """
     Parses a string in TLV (Tag-Length-Value) format based on the provided structure dictionary.
 
     Args:
     input_string (str): The string to parse in TLV format.
     structure_dict (dict): The dictionary defining the structure of the TLV elements.
-    field_de_len (str): The length format for the field ('LLVAR' or 'LLLVAR').
 
     Returns:
     dict: A dictionary containing parsed TLV elements.
 
     TLV Format:
     - TAG: The first two characters indicating the type of subelement.
-    - LENGTH: The next two or three characters indicating the length of the subelement's value.
+    - LENGTH: The next two characters indicating the length of the subelement's value.
     - VALUE: The value of the subelement with the length specified by LENGTH.
     """
     elements = {}
 
-    if field_de_len == 'LLVAR':
-        length_indicator = 2
-    elif field_de_len == 'LLLVAR':
-        length_indicator = 3
-    else:
-        raise ValueError("Invalid field_de_len. It should be 'LLVAR' or 'LLLVAR'.")
 
     while input_string:
         # First two characters are the TAG
         tag = input_string[:2]
 
-        # Next two or three characters are the LENGTH
-        length = int(input_string[2:2 + length_indicator])
+        # Next two characters are the LENGTH
+        length = int(input_string[2:4])
 
         # Next length characters are the VALUE
-        value = input_string[2 + length_indicator:2 + length_indicator + length]
+        value = input_string[4:4 + length]
 
         # Add the element to the dictionary
         elements[f'SE{tag}'] = value
 
-        # Remove the processed element from the string
-        input_string = input_string[2 + length_indicator + length:]
+        # Remove the processed element from the stringz
+        input_string = input_string[4 + length:]
 
     return elements
 
 
-def parse_subelements(subelements, structure_dict, field_de_len):
+def parse_subelements(subelements, structure_dict):
     parsed_elements = {}
     for key, value in subelements.items():
         if key in structure_dict:
             element_structure = structure_dict[key]
             if isinstance(element_structure, dict):
-                nested_elements = parse_tlv(value, element_structure, field_de_len)
+                nested_elements = parse_tlv(value, element_structure)
                 parsed_elements[key] = nested_elements
             else:
                 parsed_elements[key] = value
@@ -58,14 +51,13 @@ def parse_subelements(subelements, structure_dict, field_de_len):
     return parsed_elements
 
 
-def parse_de048(input_string, structure_dict, field_de_len='LLVAR'):
+def parse_de048(input_string, structure_dict):
     """
     Parses the DE048 field from an ISO 8583 message.
 
     Args:
     input_string (str): The string in DE048 format to parse.
     structure_dict (dict): The dictionary defining the structure of the DE048 field.
-    field_de_len (str): The length format for the field ('LLVAR' or 'LLLVAR').
 
     Returns:
     dict: A dictionary containing parsed elements of the DE048 field.
@@ -81,14 +73,14 @@ def parse_de048(input_string, structure_dict, field_de_len='LLVAR'):
     subelements_str = input_string[1:]
 
     # Parse the subelements
-    subelements = parse_tlv(subelements_str, structure_dict, field_de_len)
+    subelements = parse_tlv(subelements_str)
 
     # Create the dictionary structure
     de048 = {
         "TCC": {
             "SE001": tcc
         },
-        "SUBELEMENTS": parse_subelements(subelements, structure_dict, field_de_len)
+        "SUBELEMENTS": parse_subelements(subelements, structure_dict)
     }
 
     return de048
@@ -115,12 +107,11 @@ de048_dict = {
 input_string = "T230201260321633260101H0611012345678900802039203857"
 
 # Call the parse_de048 function with the DE048 structure
-result = parse_de048(input_string, de048_dict, field_de_len='LLVAR')
+result = parse_de048(input_string, de048_dict)
 
 # Print the result using pprint for better readability
 import pprint
 pprint.pprint(result)
-
 
 ########################################################################################################################
 
