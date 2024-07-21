@@ -1,54 +1,73 @@
-def parse_tlv(input_string):
-    elements = {}
-
-    while input_string:
-        # Pierwsze dwa znaki to TAG
-        tag = input_string[:2]
-
-        # Kolejne dwa znaki to LENGTH
-        length = int(input_string[2:4])
-
-        # Następne length znaków to VALUE
-        value = input_string[4:4 + length]
-
-        # Sprawdzenie, czy wartość zawiera dalsze TLV
-        if len(value) > 4 and value[2:4].isdigit():
-            value = parse_tlv(value)
-
-        # Dodanie elementu do słownika
-        elements[f'SE{tag}'] = value
-
-        # Usunięcie przetworzonego elementu z ciągu
-        input_string = input_string[4 + length:]
-
-    return elements
+from Crypto.Cipher import DES3
+from Crypto.Util.Padding import pad
 
 
-def parse_de048(input_string):
-    # Pierwszy znak to TCC (Transaction Code Component)
-    tcc = input_string[0]
+def create_iso_0_pin_block(pin, pan):
+    # Sprawdzenie długości PIN-u
+    if not (4 <= len(pin) <= 12):
+        raise ValueError("PIN musi mieć od 4 do 12 cyfr")
 
-    # Reszta ciągu to SUBELEMENTS
-    subelements_str = input_string[1:]
+    # Sprawdzenie długości PAN-u
+    if len(pan) < 13:
+        raise ValueError("PAN musi mieć co najmniej 13 cyfr")
 
-    # Tworzenie struktury słownikowej
-    de048 = {
-        "TCC": {
-            "SE001": tcc
-        },
-        "SUBELEMENTS": parse_tlv(subelements_str)
-    }
+    # Utworzenie bloku PIN
+    pin_block = f"{len(pin):X}{pin}".ljust(16, 'F')
 
-    return de048
+    # Wyciągnięcie 12 ostatnich cyfr PAN-u (bez ostatniej cyfry kontrolnej)
+    pan_part = f"0000{pan[-13:-1]}"
+
+    # XORowanie bloku PIN i PAN
+    pin_block_int = int(pin_block, 16)
+    pan_part_int = int(pan_part, 16)
+    result = pin_block_int ^ pan_part_int
+
+    # Konwersja wyniku do formatu heksadecymalnego
+    return f"{result:016X}"
 
 
-# Przykładowy ciąg
-input_string = "R6645010110236635ffA72-05de-48ec-9517-4bef061c096a"
+# Testowanie funkcji
+pin = "1234"
+pan = "5432101234567891"
+print(create_iso_0_pin_block(pin, pan))
 
-# Wywołanie funkcji
-result = parse_de048(input_string)
 
-# Wyświetlenie wyniku
-import pprint
+def encrypt_pin_block(pin_block, key):
+    # Konwersja klucza i bloku PIN do postaci bajtowej
+    key_bytes = bytes.fromhex(key)
+    pin_block_bytes = bytes.fromhex(pin_block)
 
-pprint.pprint(result)
+    # Utworzenie obiektu szyfrującego 3DES
+    cipher = DES3.new(key_bytes, DES3.MODE_ECB)
+
+    # Szyfrowanie bloku PIN z dopełnieniem
+    encrypted_pin_block = cipher.encrypt(pad(pin_block_bytes, DES3.block_size))
+
+    # Konwersja zaszyfrowanego bloku PIN do postaci heksadecymalnej
+    return encrypted_pin_block.hex().upper()
+
+
+# Testowanie funkcji
+pin_block = create_iso_0_pin_block("1234", "5432101234567891")
+key = "0123456789ABCDEFFEDCBA9876543210"
+encrypted_pin_block = encrypt_pin_block(pin_block, key)
+print(encrypted_pin_block)
+
+
+def decrypt_pin_block(encrypted_pin_block, key):
+    # Konwersja klucza i zaszyfrowanego bloku PIN do postaci bajtowej
+    key_bytes = bytes.fromhex(key)
+    encrypted_pin_block_bytes = bytes.fromhex(encrypted_pin_block)
+
+    # Utworzenie obiektu deszyfrującego 3DES
+    cipher = DES3.new(key_bytes, DES3.MODE_ECB)
+
+    # Deszyfrowanie bloku PIN
+    decrypted_pin_block_bytes = unpad(cipher.decrypt(encrypted_pin_block_bytes), DES3.block_size)
+
+    # Konwersja odszyfrowanego bloku PIN do postaci heksadecymalnej
+    return decrypted_pin_block_bytes.hex().upper()
+
+# Testowanie funkcji
+decrypted_pin_block = decrypt_pin_block(encrypted_pin_block, key)
+print(decrypted_pin_block)
