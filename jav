@@ -1,24 +1,80 @@
-package pl.ingenico.automation.model;
+package pl.ingenico.automation.client;
 
-public class UserResponse {
+import io.restassured.http.ContentType;
+import io.restassured.response.Response;
+import pl.ingenico.automation.model.CreateUserRequest;
 
-    private String id;
-    private String name;
-    private String job;
-    private String createdAt;
+import static io.restassured.RestAssured.given;
 
-    public String getId() {
-        return id;
+/**
+ * UserApiClient encapsulates all HTTP interactions related to user management.
+ *
+ * <p>This class acts as a dedicated API client (service layer) responsible
+ * for sending requests and receiving responses from the user endpoints.</p>
+ *
+ * <p>Test classes should never call RestAssured directly.
+ * Instead, they should rely on this client to improve readability,
+ * maintainability, and reuse of API logic.</p>
+ *
+ * <p>This design follows common enterprise automation patterns
+ * where API communication is separated from test assertions.</p>
+ */
+public class UserApiClient {
+
+    /**
+     * Sends a request to create a new user.
+     *
+     * @param request the request payload containing user details
+     * @return the HTTP response returned by the API
+     */
+    public Response createUser(CreateUserRequest request) {
+        return given()
+                .contentType(ContentType.JSON)
+                .body(request)
+                .when()
+                .post("/api/users");
     }
 
-    public String getName() {
-        return name;
+    /**
+     * Retrieves details of an existing user by user ID.
+     *
+     * @param userId the identifier of the user
+     * @return the HTTP response returned by the API
+     */
+    public Response getUser(int userId) {
+        return given()
+                .when()
+                .get("/api/users/" + userId);
     }
 
-    public String getJob() {
-        return job;
+    /**
+     * Updates an existing user's details.
+     *
+     * @param userId  the identifier of the user to update
+     * @param request the request payload with updated user data
+     * @return the HTTP response returned by the API
+     */
+    public Response updateUser(int userId, CreateUserRequest request) {
+        return given()
+                .contentType(ContentType.JSON)
+                .body(request)
+                .when()
+                .put("/api/users/" + userId);
+    }
+
+    /**
+     * Deletes a user by user ID.
+     *
+     * @param userId the identifier of the user to delete
+     * @return the HTTP response returned by the API
+     */
+    public Response deleteUser(int userId) {
+        return given()
+                .when()
+                .delete("/api/users/" + userId);
     }
 }
+
 
 
 
